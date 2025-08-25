@@ -114,7 +114,7 @@ show_spinner() {
 
   while ps -p "$pid" >/dev/null 2>&1; do
     local char="${spinstr[$index]}"
-    tmux display-message " $char Thinking of the perfect command..."
+    tmux display-message -F "#[fg=blue] $char #[fg=default]Thinking of the perfect command..."
     index=$(((index + 1) % length))
     sleep $delay
   done

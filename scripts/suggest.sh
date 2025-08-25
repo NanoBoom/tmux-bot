@@ -14,7 +14,7 @@ CURRENT_OS=$(get_os)
 CURRENT_SHELL=$(get_shell)
 
 # Parse system prompt template with variables
-PARSED_SYSTEM_PROMPT=$(parse_template "$SYSTEM_PROMPT" "$CURRENT_OS" "$CURRENT_SHELL")
+PARSED_SYSTEM_PROMPT=$(parse_template "$SYSTEM_PROMPT" "$CURRENT_OS" "$CURRENT_SHELL" "")
 
 # Check for dependencies
 if ! check_dependencies; then
@@ -35,6 +35,10 @@ mkdir -p "$LOG_DIR"
 # Generate log filename with timestamp
 LOG_FILE="$LOG_DIR/curl_command_$(date +%Y%m%d_%H%M%S).log"
 
+# Escape JSON strings for proper formatting
+ESCAPED_SYSTEM_PROMPT=$(printf '%s' "$PARSED_SYSTEM_PROMPT" | jq -Rs .)
+ESCAPED_USER_PROMPT=$(printf '%s' "$USER_PROMPT" | jq -Rs .)
+
 # Construct the JSON payload using a HEREDOC
 read -r -d '' JSON_PAYLOAD <<EOF
 {
@@ -43,11 +47,11 @@ read -r -d '' JSON_PAYLOAD <<EOF
   "messages": [
     {
       "role": "system",
-      "content": "$PARSED_SYSTEM_PROMPT"
+      "content": $ESCAPED_SYSTEM_PROMPT
     },
     {
       "role": "user",
-      "content": "$USER_PROMPT"
+      "content": $ESCAPED_USER_PROMPT
     }
   ],
   "temperature": $TEMPERATURE,
@@ -98,8 +102,14 @@ fi
 
 # Check if command was denied for safety reasons
 if [ "$AI_COMMAND" = "DENIED" ]; then
-  tmux display-message "Dangerous operation detected. Command generating denied."
-  exit 1
+  tmux display-message -F "#[fg=red] Dangerous operation detected. Command generating denied."
+  exit 0
+fi
+
+# Check if command contains "Ambiguous" and display the full message
+if echo "$AI_COMMAND" | grep -q "Ambiguous"; then
+  tmux display-message -F "#[fg=yellow] $AI_COMMAND"
+  exit 0
 fi
 
 # Clear any existing input in the current line first
