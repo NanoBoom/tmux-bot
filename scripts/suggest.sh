@@ -90,7 +90,7 @@ if [ $CURL_EXIT -eq 0 ]; then
   AI_COMMAND=$(jq -r '.choices[0].message.content' "/tmp/tmux-bot-response.json" 2>/dev/null)
   rm -f "/tmp/tmux-bot-response.json"
 else
-  tmux display-message "API请求失败，请检查网络连接和API配置"
+  tmux display-message "API request failed, please check network connection and API configuration"
   exit 1
 fi
 
