@@ -16,7 +16,7 @@ profiles:
     provider: openai
     model: openai/gpt-4o-mini
     base_url: https://openrouter.ai/api/v1
-    api_key: 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
+    api_key: sk-or-v1-test
     settings:
       temperature: 0.7
       max_tokens: 4096
