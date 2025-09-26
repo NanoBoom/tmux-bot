@@ -1,62 +1,114 @@
 # TmuxBot Configuration Summary
 
-## 🎉 Complete Configuration Package Generated
+## 🎉 XDG-Compliant Configuration System
 
-This package includes a comprehensive configuration system for TmuxBot with the new provider-based architecture.
+TmuxBot now uses the XDG Base Directory specification for configuration management, providing a standardized and user-friendly approach to storing configuration files.
 
-### 📁 Configuration Files Created
+**Configuration Location**: `~/.config/tmuxbot/config.yaml`
 
-#### Core Configuration
-- **`config.json`** - Enhanced main configuration with provider system integration
-- **`.env.template`** - Environment variable template with all options
-- **`CONFIG.md`** - Comprehensive configuration documentation
+This package includes a comprehensive configuration system for TmuxBot with XDG Base Directory compliance and profile-based architecture.
 
-#### Provider Configurations
-- **`config/providers/openai.yaml`** - OpenAI provider settings
-- **`config/providers/openrouter.yaml`** - OpenRouter provider settings
-- **`config/agents/agents.yaml`** - Agent-to-provider mappings
+### 📁 XDG Base Directory Structure
 
-#### Environment Configurations
-- **`config/environments/development.yaml`** - Development optimized settings
-- **`config/environments/production.yaml`** - Production-grade configuration
-- **`config/environments/staging.yaml`** - Staging environment balance
+TmuxBot follows the XDG Base Directory specification for standardized configuration management:
 
-#### Utilities
-- **`scripts/setup-config.py`** - Configuration validation and setup script
+#### XDG Configuration Location
+- **`~/.config/tmuxbot/config.yaml`** - Main configuration file (XDG-compliant location)
+- **`$XDG_CONFIG_HOME/tmuxbot/config.yaml`** - Alternative location if XDG_CONFIG_HOME is set
 
-## 🚀 Quick Start
+#### Configuration Migration
+- **Legacy Support**: `./config.yaml` (deprecated, shows migration warnings)
+- **Migration Tools**: Automatic migration utilities available
+- **Backward Compatibility**: Maintains full functionality during transition
 
-### 1. Set Up Environment Variables
+#### Configuration Management Scripts
+- **`scripts/setup-config.py`** - XDG configuration validation and setup
+- **`scripts/migrate-config-xdg.py`** - Standalone migration utility
+- **`tmuxbot/utils/config_migration.py`** - Migration helper functions
+
+### 🔧 XDG Base Directory Benefits
+
+#### Standards Compliance
+- ✅ Follows Linux/Unix configuration conventions
+- ✅ Compatible with system backup tools
+- ✅ Integrates with configuration management systems
+- ✅ Provides clean home directory organization
+
+#### User Experience
+- ✅ Consistent configuration location across systems
+- ✅ Easy to find and manage configuration files
+- ✅ Supports multi-user environments
+- ✅ Automatic directory creation
+
+## 🚀 Quick Start with XDG Configuration
+
+### 1. Create XDG Configuration
 ```bash
-# Copy template and configure API keys
-cp .env.template .env
-# Edit .env with your API keys
+# Create configuration template at XDG location (~/.config/tmuxbot/config.yaml)
+python scripts/setup-config.py --create-template
+
+# Or use the configuration loading system (creates template automatically)
+python -c "from tmuxbot.config.settings import save_config_template; save_config_template()"
 ```
 
-### 2. Validate Configuration
+### 2. Configure API Keys
+Edit the XDG configuration file with your API keys:
 ```bash
-# Run full configuration check
+# Open configuration file for editing
+$EDITOR ~/.config/tmuxbot/config.yaml
+
+# The file will be located at:
+# ~/.config/tmuxbot/config.yaml (default)
+# or $XDG_CONFIG_HOME/tmuxbot/config.yaml (if XDG_CONFIG_HOME is set)
+```
+
+### 3. Validate Configuration
+```bash
+# Validate XDG configuration
+python scripts/setup-config.py --validate
+
+# Run complete configuration check
 python scripts/setup-config.py --full-check
 
-# Create .env file from template
-python scripts/setup-config.py --create-env
+# Check migration status (if upgrading from legacy)
+python scripts/setup-config.py --check-migration
 ```
 
-### 3. Test Provider System
+### 4. Migrate from Legacy Configuration (if needed)
 ```bash
-# Test provider integration
-python scripts/setup-config.py --test-providers
+# Check if migration is needed
+python scripts/migrate-config-xdg.py --status
+
+# Preview migration plan
+python scripts/migrate-config-xdg.py --dry-run
+
+# Perform interactive migration
+python scripts/migrate-config-xdg.py
+
+# Or non-interactive migration
+python scripts/migrate-config-xdg.py --yes
 ```
 
-## 🔧 Configuration Layers
+## 🔧 Configuration Resolution
 
-The configuration system uses a hierarchical approach:
+The XDG-compliant configuration system uses a prioritized approach:
 
-1. **Environment Variables** (highest priority)
-2. **Environment YAML files** (`config/environments/{env}.yaml`)
-3. **Provider/Agent YAML files** (`config/providers/`, `config/agents/`)
-4. **Main config.json** (legacy compatibility)
-5. **Default values** (lowest priority)
+### Configuration File Resolution
+1. **`$XDG_CONFIG_HOME/tmuxbot/config.yaml`** (if XDG_CONFIG_HOME is set)
+2. **`$HOME/.config/tmuxbot/config.yaml`** (default XDG location)
+3. **`./config.yaml`** (legacy fallback with deprecation warnings)
+
+### Configuration Value Priority
+1. **Environment Variables** (highest priority - `TMUXBOT_*` prefix)
+2. **XDG Configuration File** (profile-based settings)
+3. **Default Values** (lowest priority)
+
+### XDG Base Directory Specification
+TmuxBot follows the XDG Base Directory specification:
+- **XDG_CONFIG_HOME**: User-specific configuration files (default: `$HOME/.config`)
+- **Automatic Directory Creation**: Creates `~/.config/tmuxbot/` if needed
+- **Permission Handling**: Graceful fallback for permission issues
+- **Cross-Platform Support**: Works on Linux, macOS, and other Unix-like systems
 
 ## ⚙️ Key Features
 
@@ -198,16 +250,47 @@ Every configuration file includes:
 - ✅ Environment-specific examples
 - ✅ Security and best practice notes
 
+## 🔄 Migration from Legacy Configuration
+
+### Automatic Migration Support
+TmuxBot provides comprehensive migration tools for upgrading from legacy configurations:
+
+#### Migration Detection
+```bash
+# Check if migration is needed
+python scripts/setup-config.py --check-migration
+python scripts/migrate-config-xdg.py --status
+```
+
+#### Migration Process
+1. **Backup Creation**: Automatic backup of legacy configuration
+2. **File Preservation**: Maintains permissions and timestamps
+3. **Validation**: Verifies migrated configuration loads correctly
+4. **User Confirmation**: Interactive prompts for safe migration
+
+#### Migration Features
+- ✅ **Interactive Mode**: Step-by-step migration with confirmations
+- ✅ **Non-Interactive Mode**: Automated migration for scripts
+- ✅ **Dry-Run Mode**: Preview migration without making changes
+- ✅ **Backup Creation**: Automatic backup before migration
+- ✅ **Rollback Support**: Easy restoration if needed
+
 ## 🎯 Next Steps
 
-1. **Copy `.env.template` to `.env`** and configure your API keys
-2. **Run validation script** to ensure everything is working
-3. **Choose your environment** (development/staging/production)
-4. **Customize agent preferences** in `config/agents/agents.yaml`
-5. **Test provider system** before deploying
+### For New Installations
+1. **Create XDG configuration**: `python scripts/setup-config.py --create-template`
+2. **Edit configuration file**: Add your API keys to `~/.config/tmuxbot/config.yaml`
+3. **Validate setup**: `python scripts/setup-config.py --validate`
+4. **Test configuration**: `python scripts/setup-config.py --full-check`
+
+### For Existing Users
+1. **Check migration status**: `python scripts/migrate-config-xdg.py --status`
+2. **Preview migration**: `python scripts/migrate-config-xdg.py --dry-run`
+3. **Migrate configuration**: `python scripts/migrate-config-xdg.py`
+4. **Validate new setup**: `python scripts/setup-config.py --full-check`
 
 ---
 
-**🎉 Your TmuxBot configuration system is ready for production use!**
+**🎉 Your TmuxBot XDG configuration system is ready for production use!**
 
-The provider-based architecture gives you maximum flexibility while maintaining simplicity and backward compatibility.
+The XDG-compliant, profile-based architecture provides standards compliance, user-friendly management, and seamless migration from legacy configurations.

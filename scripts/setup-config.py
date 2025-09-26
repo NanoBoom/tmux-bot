@@ -3,12 +3,13 @@
 TmuxBot Configuration Setup and Validation Script
 
 This script helps set up, validate, and test TmuxBot configuration.
+Configuration follows XDG Base Directory specification (~/.config/tmuxbot/config.yaml).
 
 Usage:
-    python scripts/setup-config.py --validate
-    python scripts/setup-config.py --create-env
-    python scripts/setup-config.py --test-providers
-    python scripts/setup-config.py --full-check
+    python scripts/setup-config.py --validate         # Validate XDG configuration
+    python scripts/setup-config.py --create-template  # Create XDG config template
+    python scripts/setup-config.py --check-migration  # Check if migration is needed
+    python scripts/setup-config.py --full-check       # Complete configuration check
 """
 
 import asyncio
@@ -22,10 +23,14 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 try:
-    from tmuxbot.config.settings import load_config, validate_config, save_config_template
-    from tmuxbot.config.provider_config import ProviderConfigManager
-    from tmuxbot.config.agent_config import AgentConfigManager
-    from tmuxbot.providers.manager import ProviderManager
+    from tmuxbot.config.settings import (
+        load_config,
+        save_config_template,
+        get_config_file_path,
+        get_tmuxbot_config_dir,
+        ensure_config_directory
+    )
+    from tmuxbot.utils.config_migration import migration_status, migrate_config
 except ImportError as e:
     print(f"❌ Import error: {e}")
     print("Make sure you're running this script from the project root directory")
@@ -37,146 +42,189 @@ class ConfigSetup:
 
     def __init__(self):
         self.project_root = project_root
-        self.config_dir = self.project_root / "config"
+        self.xdg_config_dir = get_tmuxbot_config_dir()
+        self.xdg_config_file = get_config_file_path()
 
     def validate_main_config(self) -> bool:
-        """Validate the main configuration."""
-        print("🔍 Validating main configuration...")
+        """Validate the main XDG configuration."""
+        print("🔍 Validating XDG configuration...")
 
         try:
             config = load_config()
-            is_valid = validate_config(config)
 
-            if is_valid:
-                print("✅ Main configuration is valid")
-                print(f"   Primary model: {config.primary_model}")
-                print(f"   Use OpenRouter: {config.use_openrouter}")
-                print(f"   API timeout: {config.api_timeout}s")
-                return True
-            else:
-                print("❌ Main configuration validation failed")
+            if config is None:
+                print("❌ No configuration found")
+                print(f"   Expected location: {self.xdg_config_file}")
+                print("   Run --create-template to create a configuration template")
                 return False
+
+            print("✅ XDG configuration loaded successfully")
+            print(f"   Configuration file: {self.xdg_config_file}")
+            print(f"   Profiles configured: {len(config.profiles)}")
+            print(f"   Agents configured: {len(config.agents)}")
+            print(f"   Max history: {config.max_history}")
+            print(f"   Conversation timeout: {config.conversation_timeout}s")
+
+            # Validate profile structure
+            if not config.profiles:
+                print("⚠️  No profiles configured")
+                return False
+
+            # Validate agent structure
+            if not config.agents:
+                print("⚠️  No agents configured")
+                return False
+
+            print("✅ Configuration structure is valid")
+            return True
 
         except Exception as e:
             print(f"❌ Error validating main configuration: {e}")
             return False
 
-    def validate_provider_configs(self) -> bool:
-        """Validate provider configurations."""
-        print("🔍 Validating provider configurations...")
+    def check_migration_status(self) -> bool:
+        """Check if migration from legacy config is needed."""
+        print("🔍 Checking configuration migration status...")
 
         try:
-            provider_config_manager = ProviderConfigManager()
-            provider_configs = provider_config_manager.load_all_provider_configs()
+            status = migration_status()
 
-            if not provider_configs:
-                print("⚠️  No provider configurations found")
-                return False
+            print(f"   XDG config exists: {'✅ Yes' if status['xdg_exists'] else '❌ No'}")
+            print(f"   XDG config path: {status['xdg_path']}")
 
-            print(f"✅ Loaded {len(provider_configs)} provider configurations:")
+            if status['legacy_exists']:
+                print(f"   Legacy config found: {status['legacy_path']}")
 
-            all_valid = True
-            for name, config in provider_configs.items():
-                try:
-                    validation_result = provider_config_manager.validate_config(config)
+                if status['needs_migration']:
+                    print("⚠️  Migration needed!")
+                    print("   Run 'python scripts/migrate-config-xdg.py' to migrate your configuration")
+                    return False
+                else:
+                    print("⚠️  Legacy config exists but XDG config takes priority")
+                    print("   Consider removing legacy config manually")
 
-                    if validation_result['valid']:
-                        print(f"   ✅ {name}: Valid")
-                    else:
-                        print(f"   ❌ {name}: Invalid - {validation_result['errors']}")
-                        all_valid = False
-
-                except Exception as e:
-                    print(f"   ❌ {name}: Validation error - {e}")
-                    all_valid = False
-
-            return all_valid
+            print(f"📝 Recommendation: {status['recommendation']}")
+            return not status['needs_migration']
 
         except Exception as e:
-            print(f"❌ Error validating provider configurations: {e}")
+            print(f"❌ Error checking migration status: {e}")
             return False
 
-    def validate_agent_configs(self) -> bool:
-        """Validate agent configurations."""
-        print("🔍 Validating agent configurations...")
+    def validate_xdg_directory(self) -> bool:
+        """Validate XDG directory structure."""
+        print("🔍 Validating XDG directory structure...")
 
         try:
-            agent_config_manager = AgentConfigManager()
-
-            # Test loading agent configurations
-            from tmuxbot.config.agent_config import AgentType
-
-            agent_types = [AgentType.PRIMARY, AgentType.CODER, AgentType.DEVOPS, AgentType.SYSADMIN]
-            valid_count = 0
-
-            for agent_type in agent_types:
-                try:
-                    providers = agent_config_manager.get_preferred_providers(agent_type)
-                    print(f"   ✅ {agent_type.value}: {len(providers) if providers else 0} providers configured")
-                    if providers:
-                        valid_count += 1
-                except Exception as e:
-                    print(f"   ⚠️  {agent_type.value}: {e}")
-
-            if valid_count > 0:
-                print(f"✅ Agent configurations loaded ({valid_count}/{len(agent_types)} have provider configs)")
-                return True
+            # Check if config directory exists
+            if self.xdg_config_dir.exists():
+                print(f"✅ XDG config directory exists: {self.xdg_config_dir}")
             else:
-                print("⚠️  No agent-specific provider configurations found (using defaults)")
-                return True  # This is not an error, just uses defaults
+                print(f"⚠️  XDG config directory does not exist: {self.xdg_config_dir}")
+                print("   Will be created automatically when needed")
 
-        except Exception as e:
-            print(f"❌ Error validating agent configurations: {e}")
-            return False
+            # Check if config file exists
+            if self.xdg_config_file.exists():
+                print(f"✅ XDG config file exists: {self.xdg_config_file}")
+            else:
+                print(f"⚠️  XDG config file does not exist: {self.xdg_config_file}")
+                print("   Run --create-template to create configuration template")
 
-    async def test_providers(self) -> bool:
-        """Test provider system integration."""
-        print("🔍 Testing provider system...")
-
-        try:
-            # Load configurations
-            config = load_config()
-            provider_config_manager = ProviderConfigManager()
-            provider_configs = provider_config_manager.load_all_provider_configs()
-
-            if not provider_configs:
-                print("❌ No provider configurations available for testing")
+            # Check directory permissions
+            try:
+                ensure_config_directory()
+                print("✅ XDG directory permissions are valid")
+                return True
+            except PermissionError:
+                print("❌ Permission denied accessing XDG config directory")
                 return False
 
-            # Create provider manager
-            provider_manager = ProviderManager()
+        except Exception as e:
+            print(f"❌ Error validating XDG directory: {e}")
+            return False
 
-            # Register providers
-            for name, provider_config in provider_configs.items():
-                provider_manager.register_provider(name, provider_config)
-                print(f"   ✅ Registered provider: {name}")
+    def create_config_template(self) -> bool:
+        """Create XDG configuration template."""
+        print("🔧 Creating XDG configuration template...")
 
-            # Test model creation
-            test_models = ["gpt-4o", "gpt-4o-mini"]
+        try:
+            if self.xdg_config_file.exists():
+                response = input(f"⚠️  Configuration already exists at {self.xdg_config_file}. Overwrite? (y/N): ")
+                if response.lower() != 'y':
+                    print("📋 Keeping existing configuration")
+                    return True
 
-            for model_name in test_models:
-                try:
-                    model_str = await provider_manager.create_model(model_name)
-                    print(f"   ✅ Created model '{model_name}': {model_str}")
-                except Exception as e:
-                    print(f"   ⚠️  Failed to create model '{model_name}': {e}")
-
-            # Test provider validation
-            for provider_name, provider_status in provider_manager.providers.items():
-                try:
-                    validation_result = await provider_status.provider.validate_config()
-                    status = "✅" if validation_result.get('valid', False) else "⚠️"
-                    print(f"   {status} Provider {provider_name} validation: {validation_result.get('status', 'unknown')}")
-                except Exception as e:
-                    print(f"   ⚠️  Provider {provider_name} validation failed: {e}")
-
-            print("✅ Provider system test completed")
+            save_config_template()
+            print(f"✅ Configuration template created at: {self.xdg_config_file}")
+            print("📝 Please edit the configuration and add your API keys")
             return True
 
         except Exception as e:
-            print(f"❌ Error testing provider system: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"❌ Error creating configuration template: {e}")
+            return False
+
+    def validate_profile_configs(self) -> bool:
+        """Validate profile configurations in the XDG config."""
+        print("🔍 Validating profile configurations...")
+
+        try:
+            config = load_config()
+            if config is None:
+                print("❌ No configuration loaded")
+                return False
+
+            if not config.profiles:
+                print("❌ No profiles configured")
+                return False
+
+            print(f"✅ Found {len(config.profiles)} profiles:")
+
+            for profile_name, profile_config in config.profiles.items():
+                print(f"   📋 {profile_name}:")
+                print(f"      Provider: {profile_config.provider}")
+                print(f"      Model: {profile_config.model}")
+                print(f"      API Key: {'✅ Set' if profile_config.api_key else '❌ Missing'}")
+                if profile_config.base_url:
+                    print(f"      Base URL: {profile_config.base_url}")
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Error validating profile configurations: {e}")
+            return False
+
+    def validate_agent_configs(self) -> bool:
+        """Validate agent configurations in the XDG config."""
+        print("🔍 Validating agent configurations...")
+
+        try:
+            config = load_config()
+            if config is None:
+                print("❌ No configuration loaded")
+                return False
+
+            if not config.agents:
+                print("❌ No agents configured")
+                return False
+
+            print(f"✅ Found {len(config.agents)} agents:")
+
+            for agent_name, agent_config in config.agents.items():
+                print(f"   🤖 {agent_name}:")
+                print(f"      Profile: {agent_config.profile}")
+                if agent_config.instructions:
+                    print(f"      Instructions: {agent_config.instructions[:50]}...")
+                if agent_config.fallbacks:
+                    print(f"      Fallbacks: {', '.join(agent_config.fallbacks)}")
+
+                # Validate that the referenced profile exists
+                if agent_config.profile not in config.profiles:
+                    print(f"      ❌ Profile '{agent_config.profile}' not found")
+                    return False
+
+            return True
+
+        except Exception as e:
+            print(f"❌ Error validating agent configurations: {e}")
             return False
 
     def check_environment_variables(self) -> bool:
@@ -215,44 +263,17 @@ class ConfigSetup:
             return False
 
     def check_config_files(self) -> bool:
-        """Check configuration file structure."""
-        print("🔍 Checking configuration files...")
+        """Check XDG configuration file structure."""
+        print("🔍 Checking XDG configuration files...")
 
-        required_files = [
-            "config.json",
-            "config/providers/openai.yaml",
-            "config/providers/openrouter.yaml",
-            "config/agents/agents.yaml",
-            "config/environments/development.yaml"
-        ]
-
-        optional_files = [
-            "config/environments/production.yaml",
-            "config/environments/staging.yaml",
-            ".env",
-            ".env.template"
-        ]
-
-        all_found = True
-
-        print("   Required files:")
-        for file_path in required_files:
-            full_path = self.project_root / file_path
-            if full_path.exists():
-                print(f"   ✅ {file_path}")
-            else:
-                print(f"   ❌ {file_path} (missing)")
-                all_found = False
-
-        print("   Optional files:")
-        for file_path in optional_files:
-            full_path = self.project_root / file_path
-            if full_path.exists():
-                print(f"   ✅ {file_path}")
-            else:
-                print(f"   ⚠️  {file_path} (not found)")
-
-        return all_found
+        # Check main XDG config file
+        if self.xdg_config_file.exists():
+            print(f"   ✅ XDG config file: {self.xdg_config_file}")
+            return True
+        else:
+            print(f"   ❌ XDG config file missing: {self.xdg_config_file}")
+            print("   Run --create-template to create configuration")
+            return False
 
     def create_env_template(self) -> bool:
         """Create .env file from template."""
@@ -284,35 +305,24 @@ class ConfigSetup:
             print(f"❌ Error creating .env file: {e}")
             return False
 
-    def create_missing_configs(self) -> bool:
-        """Create missing configuration files with defaults."""
-        print("🔧 Creating missing configuration files...")
-
-        try:
-            # Create main config.json if missing
-            config_json = self.project_root / "config.json"
-            if not config_json.exists():
-                save_config_template()
-                print("   ✅ Created config.json template")
-
-            # Additional configuration creation logic could go here
-            # For now, the existing YAML files should be sufficient
-
-            return True
-
-        except Exception as e:
-            print(f"❌ Error creating configuration files: {e}")
-            return False
-
-
 def main():
     """Main script entry point."""
-    parser = argparse.ArgumentParser(description="TmuxBot Configuration Setup and Validation")
-    parser.add_argument("--validate", action="store_true", help="Validate all configurations")
-    parser.add_argument("--create-env", action="store_true", help="Create .env file from template")
-    parser.add_argument("--test-providers", action="store_true", help="Test provider system")
-    parser.add_argument("--full-check", action="store_true", help="Run full configuration check")
-    parser.add_argument("--setup", action="store_true", help="Set up missing configuration files")
+    parser = argparse.ArgumentParser(
+        description="TmuxBot XDG Configuration Setup and Validation",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python scripts/setup-config.py --validate         # Validate XDG configuration
+  python scripts/setup-config.py --create-template  # Create XDG config template
+  python scripts/setup-config.py --check-migration  # Check migration status
+  python scripts/setup-config.py --full-check       # Complete configuration check
+        """
+    )
+
+    parser.add_argument("--validate", action="store_true", help="Validate XDG configuration")
+    parser.add_argument("--create-template", action="store_true", help="Create XDG configuration template")
+    parser.add_argument("--check-migration", action="store_true", help="Check if migration from legacy config is needed")
+    parser.add_argument("--full-check", action="store_true", help="Run complete configuration validation")
 
     args = parser.parse_args()
 
@@ -322,35 +332,35 @@ def main():
 
     setup = ConfigSetup()
 
-    print("🚀 TmuxBot Configuration Setup and Validation")
-    print("=" * 50)
+    print("🚀 TmuxBot XDG Configuration Setup and Validation")
+    print("=" * 60)
 
     success = True
 
-    if args.create_env:
-        success &= setup.create_env_template()
+    if args.create_template:
+        success &= setup.create_config_template()
 
-    if args.setup:
-        success &= setup.create_missing_configs()
+    if args.check_migration or args.full_check:
+        success &= setup.check_migration_status()
 
     if args.validate or args.full_check:
+        success &= setup.validate_xdg_directory()
         success &= setup.check_config_files()
-        success &= setup.check_environment_variables()
         success &= setup.validate_main_config()
-        success &= setup.validate_provider_configs()
+        success &= setup.validate_profile_configs()
         success &= setup.validate_agent_configs()
 
-    if args.test_providers or args.full_check:
-        success &= asyncio.run(setup.test_providers())
-
-    print("\n" + "=" * 50)
+    print("\n" + "=" * 60)
 
     if success:
-        print("🎉 Configuration check completed successfully!")
-        print("Your TmuxBot configuration is ready to use.")
+        print("🎉 Configuration validation completed successfully!")
+        print("Your TmuxBot XDG configuration is ready to use.")
+        print(f"📁 Configuration location: {setup.xdg_config_file}")
     else:
-        print("❌ Configuration check found issues.")
+        print("❌ Configuration validation found issues.")
         print("Please review the errors above and fix them.")
+        if args.check_migration:
+            print("💡 Consider running: python scripts/migrate-config-xdg.py")
         sys.exit(1)
 
 
