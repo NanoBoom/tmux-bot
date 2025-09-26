@@ -4,15 +4,8 @@ import logging
 from pydantic_ai import Agent
 
 from ..model.factory import ModelFactory
-
 from ..config.settings import Config
-# from ..config.agent_config import AgentConfigManager, AgentType, ContextType
-# from ..config.provider_config import ProviderConfigManager
-
-# from ..providers.manager import ProviderManager, SelectionStrategy
 from . import TmuxBotDeps
-
-# from pydantic_ai.models.openai import OpenAIChatModel
 
 logger = logging.getLogger(__name__)
 

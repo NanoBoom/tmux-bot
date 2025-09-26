@@ -21,10 +21,10 @@ def get_xdg_config_home() -> Path:
     Returns:
         Path: XDG config home directory
     """
-    xdg_config_home = os.environ.get('XDG_CONFIG_HOME')
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
         return Path(xdg_config_home)
-    return Path.home() / '.config'
+    return Path.home() / ".config"
 
 
 def get_tmuxbot_config_dir() -> Path:
@@ -34,7 +34,7 @@ def get_tmuxbot_config_dir() -> Path:
     Returns:
         Path: TmuxBot configuration directory (~/.config/tmuxbot or $XDG_CONFIG_HOME/tmuxbot)
     """
-    return get_xdg_config_home() / 'tmuxbot'
+    return get_xdg_config_home() / "tmuxbot"
 
 
 def get_config_file_path() -> Path:
@@ -44,7 +44,7 @@ def get_config_file_path() -> Path:
     Returns:
         Path: Full path to config.yaml in XDG-compliant location
     """
-    return get_tmuxbot_config_dir() / 'config.yaml'
+    return get_tmuxbot_config_dir() / "config.yaml"
 
 
 def ensure_config_directory() -> Path:
@@ -81,6 +81,7 @@ class ProfileConfig:
 class AgentConfig:
     profile: str
     instructions: Optional[str] = None
+    extend: bool = True  # extend instructions from previous agents if True
     fallbacks: Optional[List[str]] = None
 
 
@@ -120,9 +121,13 @@ def load_config() -> Union[None, Config]:
             if yaml_data:
                 config_data = yaml_data
                 config_file_loaded = xdg_config_file
-                logger.info(f"Loaded configuration from XDG location: {xdg_config_file}")
+                logger.info(
+                    f"Loaded configuration from XDG location: {xdg_config_file}"
+                )
         except Exception as e:
-            logger.warning(f"Failed to load config from XDG location {xdg_config_file}: {e}")
+            logger.warning(
+                f"Failed to load config from XDG location {xdg_config_file}: {e}"
+            )
 
     # Fallback to legacy config.yaml in current directory (with deprecation warning)
     if not config_file_loaded:
@@ -133,9 +138,15 @@ def load_config() -> Union[None, Config]:
                 if yaml_data:
                     config_data = yaml_data
                     config_file_loaded = legacy_config_file
-                    logger.warning(f"DEPRECATED: Loading configuration from legacy location: {legacy_config_file}")
-                    logger.warning(f"Please migrate your configuration to XDG location: {xdg_config_file}")
-                    logger.warning("Run 'python scripts/migrate-config-xdg.py' to migrate automatically")
+                    logger.warning(
+                        f"DEPRECATED: Loading configuration from legacy location: {legacy_config_file}"
+                    )
+                    logger.warning(
+                        f"Please migrate your configuration to XDG location: {xdg_config_file}"
+                    )
+                    logger.warning(
+                        "Run 'python scripts/migrate-config-xdg.py' to migrate automatically"
+                    )
             except Exception as e:
                 logger.warning(f"Failed to load legacy config.yaml: {e}")
 
