@@ -1,0 +1,15 @@
+# Disable specific warnings that are false positives
+
+# SC1090: Can't follow non-constant source
+# Reason: Dynamic paths like "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
+disable=SC1090
+
+# SC1091: Not following sourced file
+# Reason: Source files are validated separately
+disable=SC1091
+
+# Set shell dialect
+shell=bash
+
+# Enable all optional checks
+enable=all

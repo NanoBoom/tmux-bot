@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# 测试文件列表
+TEST_FILES=(
+    "$CURRENT_DIR/test_helpers.sh"
+    "$CURRENT_DIR/test_config.sh"
+    "$CURRENT_DIR/test_security.sh"
+)
+
+# 统计变量
+total=0
+passed=0
+failed=0
+
+# 执行所有测试
+for test_file in "${TEST_FILES[@]}"; do
+    if [ -f "$test_file" ]; then
+        echo "Running $(basename "$test_file")..."
+        echo "========================================"
+        if bash "$test_file"; then
+            ((passed++))
+            echo "✅ $(basename "$test_file") PASSED"
+        else
+            ((failed++))
+            echo "❌ $(basename "$test_file") FAILED"
+        fi
+        ((total++))
+        echo ""
+    else
+        echo "⚠️  Test file not found: $(basename "$test_file")"
+    fi
+done
+
+# 输出汇总
+echo "========================================"
+echo "Test Summary: $passed/$total test files passed"
+if [ $failed -eq 0 ]; then
+    echo "✅ All tests passed"
+    exit 0
+else
+    echo "❌ $failed test file(s) failed"
+    exit 1
+fi

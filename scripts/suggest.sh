@@ -1,30 +1,52 @@
 #!/usr/bin/env bash
 
-# Source helper functions
+# Source helper functions FIRST
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
-# Source variables
 source "$(dirname "${BASH_SOURCE[0]}")/variables.sh"
 
-# Get user prompt from the first argument
-# Remove surrounding quotes if present (from tmux command-prompt)
-USER_PROMPT="$1"
-
-# Get current OS and shell information
-CURRENT_OS=$(get_os)
-CURRENT_SHELL=$(get_shell)
-
-# Parse system prompt template with variables
-PARSED_SYSTEM_PROMPT=$(parse_template "$SYSTEM_PROMPT" "$CURRENT_OS" "$CURRENT_SHELL" "")
-
-# Check for dependencies
+# Check dependencies IMMEDIATELY (before any other operations)
 if ! check_dependencies; then
   exit 1
 fi
+
+# Get user prompt
+USER_PROMPT="$1"
+if [ -z "$USER_PROMPT" ]; then
+    tmux display-message "Error: No prompt provided"
+    exit 1
+fi
+
+# Get system information
+CURRENT_OS=$(get_os)
+CURRENT_SHELL=$(get_shell)
+PARSED_SYSTEM_PROMPT=$(parse_template "$SYSTEM_PROMPT" "$CURRENT_OS" "$CURRENT_SHELL" "")
+
+# === Configuration Validation Function ===
+validate_config() {
+    local api_key="$1"
+    local base_url="$2"
+
+    # 检查 API key 是否配置（必填）
+    if [ -z "$api_key" ]; then
+        tmux display-message -d 5000 -F "#[fg=red]Error: API key not configured. Set @openai_api_key in .tmux.conf or export OPENAI_API_KEY"
+        return 1
+    fi
+
+    # 检查 URL 格式（警告级别）
+    if ! echo "$base_url" | grep -qE '^https?://'; then
+        tmux display-message -d 3000 -F "#[fg=yellow]Warning: Base URL should start with http:// or https://"
+    fi
+
+    return 0
+}
 
 # Get from tmux options
 tmux_base_url=$(get_tmux_option "@openai_base_url" "$DEFAULT_BASE_URL")
 tmux_api_key=$(get_tmux_option "@openai_api_key" "")
 tmux_model=$(get_tmux_option "@openai_model" "$DEFAULT_MODEL")
+
+# Validate configuration before proceeding
+validate_config "$tmux_api_key" "$tmux_base_url" || exit 1
 
 api_url="$tmux_base_url/chat/completions"
 
@@ -34,6 +56,18 @@ mkdir -p "$LOG_DIR"
 
 # Generate log filename with timestamp
 LOG_FILE="$LOG_DIR/curl_command_$(date +%Y%m%d_%H%M%S).log"
+
+# Create unique temporary file for API response
+TEMP_RESPONSE=$(mktemp "${TMPDIR:-/tmp}/tmux-bot-response.XXXXXX")
+
+# Define cleanup function (safe even if CURL_PID is undefined)
+cleanup() {
+    [ -n "${CURL_PID:-}" ] && kill "$CURL_PID" 2>/dev/null
+    rm -f "$TEMP_RESPONSE"
+}
+
+# Set trap for all exit scenarios
+trap cleanup EXIT INT TERM
 
 # Escape JSON strings for proper formatting
 ESCAPED_SYSTEM_PROMPT=$(printf '%s' "$PARSED_SYSTEM_PROMPT" | jq -Rs .)
@@ -62,20 +96,22 @@ read -r -d '' JSON_PAYLOAD <<EOF
 }
 EOF
 
-# Log the curl command to file
-echo "curl -X POST \"$api_url\" \\" >"$LOG_FILE"
-echo "  -H \"Content-Type: application/json\" \\" >>"$LOG_FILE"
-echo "  -H \"Authorization: Bearer $tmux_api_key\" \\" >>"$LOG_FILE"
-echo "  -d \"$JSON_PAYLOAD\"" >>"$LOG_FILE"
-echo "" >>"$LOG_FILE"
-echo "Full JSON payload:" >>"$LOG_FILE"
-echo "$JSON_PAYLOAD" >>"$LOG_FILE"
+# Log the curl command to file (with API key redacted)
+{
+    echo "curl -X POST \"$api_url\" \\"
+    echo "  -H \"Content-Type: application/json\" \\"
+    echo "  -H \"Authorization: Bearer ***REDACTED***\" \\"
+    echo "  -d \"$JSON_PAYLOAD\""
+    echo ""
+    echo "Full JSON payload:"
+    echo "$JSON_PAYLOAD"
+} >"$LOG_FILE"
 
 # Make the API call in background and show spinner animation
 curl -X POST "$api_url" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer $tmux_api_key" \
-  -d "$JSON_PAYLOAD" >"/tmp/tmux-bot-response.json" 2>/dev/null &
+  -d "$JSON_PAYLOAD" >"$TEMP_RESPONSE" 2>/dev/null &
 CURL_PID=$!
 
 # Show spinner animation while waiting for API response
@@ -87,16 +123,22 @@ CURL_EXIT=$?
 
 # Parse the response if curl succeeded
 if [ $CURL_EXIT -eq 0 ]; then
-  AI_COMMAND=$(jq -r '.choices[0].message.content' "/tmp/tmux-bot-response.json" 2>/dev/null)
-  rm -f "/tmp/tmux-bot-response.json"
+  AI_COMMAND=$(jq -r '.choices[0].message.content' "$TEMP_RESPONSE" 2>/dev/null)
+  JQ_EXIT=$?
+
+  # Check jq parsing result
+  if [ $JQ_EXIT -ne 0 ]; then
+      tmux display-message -d 3000 -F "#[fg=red]Error: Failed to parse API response (invalid JSON)"
+      exit 1
+  fi
+
+  # Check if jq returned null or empty
+  if [ -z "$AI_COMMAND" ] || [ "$AI_COMMAND" = "null" ]; then
+      tmux display-message "AI did not return a valid command for the prompt: $USER_PROMPT"
+      exit 1
+  fi
 else
   tmux display-message "API request failed, please check network connection and API configuration"
-  exit 1
-fi
-
-# Check if a command was returned, handle potential null or empty responses
-if [ -z "$AI_COMMAND" ] || [ "$AI_COMMAND" = "null" ]; then
-  tmux display-message "AI did not return a valid command for the prompt: $USER_PROMPT"
   exit 1
 fi
 

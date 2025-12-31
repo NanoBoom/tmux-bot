@@ -1,100 +1,166 @@
-# Tmux AI Assistant
+# tmux-bot
 
-This is a tmux plugin that uses an AI model (like OpenAI's GPT series) to translate your natural language into bash commands and types them directly into your terminal.
-
-<https://github.com/doodle-es/tmux-bot/assets/889295/0391d1e6-b620-4286-8a39-5095d38b0066>
+An intelligent tmux plugin that translates natural language into bash commands using AI (OpenAI GPT or compatible APIs).
 
 ## Features
 
-- **Natural Language to Command**: Simply describe what you want to do (e.g., "find all markdown files in my home directory") and the AI will generate the command for you.
-- **Seamless Integration**: Binds to a tmux key of your choice (`prefix + b` by default) for quick access.
-- **Direct Input**: The suggested command is typed directly into your command prompt, ready for you to review and execute.
+- 🤖 Natural language to bash command translation
+- 🔒 Security checks (dangerous operation denial, ambiguous request clarification)
+- ⚡ Fast response with loading animation
+- 🎨 Command preview (inserted but not executed)
+- 🔧 Compatible with OpenAI-compatible API endpoints
 
 ## Requirements
 
-- **tmux**: The terminal multiplexer.
-- **curl**: A command-line tool for transferring data with URLs.
-- **jq**: A lightweight and flexible command-line JSON processor.
-- **OpenAI API Key**: You need an API key from OpenAI to use the model.
+- **tmux** >= 1.9 (uses `command-prompt -p` feature)
+- **bash** >= 4.0
+- **curl** (HTTP client)
+- **jq** (JSON processor)
+- **OpenAI API key** or compatible API endpoint
 
 ## Installation
 
-1. **Clone the repository:**
+### Via TPM (Recommended)
 
-    ```bash
-    git clone https://github.com/doodle-es/tmux-bot.git ~/.config/tmux/plugins/tmux-bot
-    ```
+Add to your `~/.tmux.conf`:
 
-2. **Set up your OpenAI API Key:**
+```tmux
+set -g @plugin 'doodle-es/tmux-bot'
+```
 
-    You can configure the API key in two ways:
+Press `prefix + I` to install.
 
-    **Option A: Environment variable** (add to `~/.bashrc`, `~/.zshrc`):
+### Manual Installation
 
-    ```bash
-    export OPENAI_API_KEY="your_openai_api_key_here"
-    ```
+```bash
+git clone https://github.com/doodle-es/tmux-bot ~/.tmux/plugins/tmux-bot
+echo 'run-shell "~/.tmux/plugins/tmux-bot/bot.tmux"' >> ~/.tmux.conf
+tmux source-file ~/.tmux.conf
+```
 
-    Reload your shell configuration for the changes to take effect (e.g., `source ~/.zshrc`).
+## Configuration
 
-    **Option B: Tmux configuration** (add to `~/.tmux.conf`):
+### Required Settings
 
-    ```tmux
-    set-option -g @openai_api_key "your_openai_api_key_here"
-    # Optional: Set custom API URL (defaults to OpenAI)
-    set-option -g @openai_base_url "https://api.openai.com/v1/chat/completions"
-    ```
+```tmux
+# Set your OpenAI API key (required)
+set -g @openai_api_key "sk-your-api-key-here"
+```
 
-3. **Add the plugin to your `tmux.conf`:**
+Or use environment variable:
 
-    Add this line to your `~/.tmux.conf` file:
+```bash
+export OPENAI_API_KEY="sk-your-api-key-here"
+```
 
-    ```tmux
-    run-shell "~/.config/tmux/plugins/tmux-bot/bot.tmux"
-    ```
+### Optional Settings
 
-4. **Reload your tmux configuration:**
+```tmux
+# Custom API endpoint (default: https://api.openai.com/v1)
+set -g @openai_base_url "https://api.openai.com/v1"
 
-    ```bash
-    tmux source-file ~/.tmux.conf
-    ```
+# Model selection (default: gpt-4)
+set -g @openai_model "gpt-4"
+
+# Custom keybinding (default: v)
+set -g @tmux_bot_key "V"  # Use capital V instead
+```
 
 ## Usage
 
-1. Press `prefix + b` (your tmux prefix, then the letter 'b').
-2. A command prompt will appear at the bottom of your tmux window.
-3. Type your request in natural language (e.g., "list all running docker containers").
-4. Press `Enter`.
-5. The AI-generated command will be typed into your current tmux pane.
+1. Press `prefix + v` (or your custom key)
+2. Type your natural language request (e.g., "show disk usage")
+3. Wait for AI to generate the command
+4. Command is inserted into your terminal (not auto-executed)
+5. Review and press Enter to execute
 
-## Customization
+### Example Requests
 
-### Key Binding
+- "list all markdown files"
+- "show current directory size"
+- "compress all png files to archive.zip"
+- "find files modified in last 7 days"
 
-You can change the key binding in the `bot.tmux` file. For example, to change it to `prefix + a`:
+### Safety Features
 
-```tmux
-# In bot.tmux
-tmux bind-key a command-prompt -p "Ask AI assistant:" \
-  "run-shell '"$CURRENT_DIR/scripts/suggest.sh" "%1"'"
+**Dangerous Operation Denial**: Commands like `rm -rf /`, `dd`, `mkfs` are automatically denied.
+
+**Ambiguous Request Clarification**: If your request lacks key information, the AI will ask for clarification.
+
+**Command Preview**: Commands are inserted but not executed, allowing you to review before running.
+
+## Troubleshooting
+
+### Plugin Not Loading
+
+- Check tmux version: `tmux -V` (must be >= 1.9)
+- Reload config: `tmux source-file ~/.tmux.conf`
+- Check for errors: `tmux display-message "Plugin loaded"`
+
+### API Key Not Working
+
+- Verify key is set: `tmux show-option -gv @openai_api_key`
+- Check environment variable: `echo $OPENAI_API_KEY`
+- Test connectivity: `curl -I https://api.openai.com/v1/models`
+
+### Key Binding Conflict
+
+- Check existing bindings: `tmux list-keys | grep "bind-key.*v"`
+- Use custom key: `set -g @tmux_bot_key "your-key"`
+- Plugin will warn if key is already bound
+
+### Missing Dependencies
+
+```bash
+# macOS
+brew install jq curl
+
+# Ubuntu/Debian
+sudo apt-get install jq curl
+
+# Verify installation
+command -v jq && command -v curl && echo "✅ Dependencies OK"
 ```
 
-### API Configuration
+## Development
 
-You can configure the API endpoint, key, and model in your `~/.tmux.conf`:
+### Running Tests
 
-```tmux
-# Set OpenAI API key
-set-option -g @openai_api_key "your_openai_api_key_here"
+```bash
+# Run full test suite
+./tests/run_tests
 
-# Optional: Set custom API URL (for other OpenAI-compatible APIs)
-set-option -g @openai_base_url "https://api.openai.com/v1"
+# Run specific test file
+bash tests/test_helpers.sh
 
-# Optional: Set custom model (default: gpt-5)
-set-option -g @openai_model "gpt-4-turbo"
+# Run shellcheck
+shellcheck -x bot.tmux scripts/*.sh
+```
+
+### Project Structure
+
+```
+tmux-bot/
+├── bot.tmux              # Plugin entry point
+├── scripts/
+│   ├── suggest.sh        # Main logic (API calls)
+│   ├── helpers.sh        # Utility functions
+│   └── variables.sh      # Configuration constants
+├── tests/                # Test suite
+└── PRPs/                 # Implementation plans
 ```
 
 ## License
 
-This project is licensed under the MIT License.
+MIT License - see LICENSE file for details
 
+## Credits
+
+Inspired by tmux plugin ecosystem best practices from:
+- [tmux-plugins/tpm](https://github.com/tmux-plugins/tpm)
+- [tmux-plugins/tmux-resurrect](https://github.com/tmux-plugins/tmux-resurrect)
+- [tmux-plugins/tmux-yank](https://github.com/tmux-plugins/tmux-yank)
+
+---
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)

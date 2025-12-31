@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 
+# Include guard
+[ -n "$_TMUX_BOT_HELPERS_LOADED" ] && return
+_TMUX_BOT_HELPERS_LOADED=1
+
 # Helper functions for tmux-bot plugin
 
 # Get the current script directory
@@ -92,10 +96,10 @@ parse_template() {
   local shell="$3"
   local user_prompt="$4"
 
-  # Replace template variables
-  template="${template/(OS)/$os}"
-  template="${template/(SHELL)/$shell}"
-  template="${template/(USER_PROMPT)/$user_prompt}"
+  # Replace template variables (use // for global replace)
+  template="${template//\{OS\}/$os}"
+  template="${template//\{SHELL\}/$shell}"
+  template="${template//\{USER_PROMPT\}/$user_prompt}"
 
   echo "$template"
 }
@@ -120,4 +124,37 @@ show_spinner() {
   done
 
   tmux display-message -d 10 "" # Clear the message
+}
+
+# Check if a key binding is already set
+# Returns 0 if key is available, 1 if already bound
+# Usage: key_binding_not_set "v" && tmux bind-key v command
+key_binding_not_set() {
+    local key="$1"
+
+    # 检查 prefix 表中是否已有该键的绑定
+    # 使用 awk 精确匹配第 4 列（键位置），避免误匹配 command 内容
+    if tmux list-keys -T prefix 2>/dev/null | awk -v key="$key" 'BEGIN {found=0} $4 == key {found=1; exit} END {exit !found}'; then
+        return 1  # Key is already bound
+    else
+        return 0  # Key is available
+    fi
+}
+
+# Check if tmux version meets minimum requirement
+# Usage: tmux_version_ok "1.9" || die "Requires tmux 1.9+"
+tmux_version_ok() {
+    local required_version="$1"
+    local current_version
+
+    # 提取版本号（去除字母后缀，如 "3.2a" -> "3.2"）
+    current_version=$(tmux -V 2>/dev/null | grep -oE '[0-9]+\.[0-9]+' | head -1)
+
+    if [ -z "$current_version" ]; then
+        return 1  # tmux not found or version unparseable
+    fi
+
+    # 使用 awk 比较版本号（浮点数比较）
+    awk -v cur="$current_version" -v req="$required_version" \
+        'BEGIN { exit (cur < req) }'
 }
