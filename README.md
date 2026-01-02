@@ -10,6 +10,18 @@ An intelligent tmux plugin that translates natural language into bash commands u
 - 🎨 Command preview (inserted but not executed)
 - 🔧 Compatible with OpenAI-compatible API endpoints
 
+## ⚠️ Breaking Change in v2.0
+
+Default keybindings changed:
+- Command mode: `prefix + v` → `prefix + a`
+- Chat mode: `prefix + V` → `prefix + b`
+
+**To use old keys**, add to `~/.tmux.conf`:
+```tmux
+set -g @tmux_bot_key "v"
+set -g @tmux_bot_chat_key "V"
+```
+
 ## Requirements
 
 - **tmux** >= 1.9 (uses `command-prompt -p` feature)
@@ -62,13 +74,13 @@ set -g @openai_base_url "https://api.openai.com/v1"
 # Model selection (default: gpt-4)
 set -g @openai_model "gpt-4"
 
-# Custom keybinding (default: v)
-set -g @tmux_bot_key "V"  # Use capital V instead
+# Custom keybinding (default: a)
+set -g @tmux_bot_key "c"  # Use 'c' instead of default 'a'
 ```
 
 ## Usage
 
-1. Press `prefix + v` (or your custom key)
+1. Press `prefix + a` (or your custom key)
 2. Type your natural language request (e.g., "show disk usage")
 3. Wait for AI to generate the command
 4. Command is inserted into your terminal (not auto-executed)
@@ -89,6 +101,105 @@ set -g @tmux_bot_key "V"  # Use capital V instead
 
 **Command Preview**: Commands are inserted but not executed, allowing you to review before running.
 
+## AI Chat Assistant (Multi-turn Conversations)
+
+**New in v2.0**: Persistent AI chat mode with `prefix + b`.
+
+### Quick Start
+
+1. **Install aichat**:
+   ```bash
+   # macOS
+   brew install aichat
+
+   # Linux
+   cargo install aichat
+
+   # Or download binary from https://github.com/sigoden/aichat/releases
+   ```
+
+2. **Configure API Key** (if not already done):
+   ```bash
+   # aichat will prompt for API key on first run
+   aichat
+
+   # Or set environment variable
+   export OPENAI_API_KEY="sk-..."
+   ```
+
+3. **Install tmux-toggle-popup** (optional, for popup UI):
+   ```tmux
+   # Add to ~/.tmux.conf
+   set -g @plugin 'loichyan/tmux-toggle-popup'
+
+   # Then install via TPM (prefix + I)
+   ```
+
+4. **Use Chat Mode**:
+   - Press `prefix + b`
+   - Popup appears with aichat REPL
+   - Ask questions, get responses, refine iteratively
+   - Close popup: session persists, reopens with full history
+
+### Chat Mode vs Command Mode
+
+| Feature | Command Mode (`prefix + a`) | Chat Mode (`prefix + b`) |
+|---------|----------------------------|--------------------------|
+| **Use Case** | Quick one-shot commands | Multi-turn conversations |
+| **UI** | Inline prompt | Popup window |
+| **History** | None | Full session persistence |
+| **Output** | Inserts command to terminal | Interactive chat |
+| **Best For** | "Find all .md files" | "Explain tmux sessions, then show me how to rename one" |
+
+### Custom Role (Optional)
+
+Create `~/.config/aichat/roles/tmux-bot-assistant.md`:
+
+```yaml
+---
+model: openai:gpt-4
+temperature: 0.3
+---
+You are a tmux and shell command expert.
+
+When user describes a task:
+1. Provide executable command (single-line preferred)
+2. Brief explanation
+3. Warn if destructive (rm, dd, mkfs, etc.)
+
+Consider OS and shell context. Be concise.
+```
+
+See `examples/aichat-role-tmux-bot-assistant.md` for a complete example.
+
+### Chat Mode Configuration
+
+```tmux
+# Customize chat keybinding (default: b)
+set -g @tmux_bot_chat_key "B"  # Use capital 'B' instead of default 'b'
+```
+
+### Chat Mode Troubleshooting
+
+**"aichat not installed" message**:
+- Install aichat: https://github.com/sigoden/aichat#installation
+- Verify: `which aichat`
+
+**Popup doesn't appear**:
+- Option 1: Install tmux-toggle-popup (see Quick Start)
+- Option 2: Use fallback (opens new tmux window instead)
+- Check: `tmux show -g @popup-toggle` should show script path
+
+**Session doesn't persist**:
+- aichat sessions auto-save by default
+- Check: `aichat --list-sessions` should show "tmux-bot"
+- Delete session: `aichat` → `.delete session tmux-bot`
+
+**Role not found**:
+- Custom roles are optional
+- aichat uses default behavior if role missing
+- Create role: `mkdir -p ~/.config/aichat/roles/`
+
 ## Troubleshooting
 
 ### Plugin Not Loading
@@ -105,7 +216,7 @@ set -g @tmux_bot_key "V"  # Use capital V instead
 
 ### Key Binding Conflict
 
-- Check existing bindings: `tmux list-keys | grep "bind-key.*v"`
+- Check existing bindings: `tmux list-keys | grep "bind-key.*a"`
 - Use custom key: `set -g @tmux_bot_key "your-key"`
 - Plugin will warn if key is already bound
 

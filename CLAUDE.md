@@ -187,7 +187,7 @@ bat src/main.ts
 
 ## 项目概述
 
-tmux-bot 是一个 tmux 插件，通过 AI 模型（OpenAI GPT 系列或兼容 API）将自然语言转换为 bash 命令并直接输入终端。用户按下快捷键 `prefix + v` 后输入自然语言描述，AI 会生成对应的命令并插入到当前 tmux 面板中。
+tmux-bot 是一个 tmux 插件，通过 AI 模型（OpenAI GPT 系列或兼容 API）将自然语言转换为 bash 命令并直接输入终端。用户按下快捷键 `prefix + a` 后输入自然语言描述，AI 会生成对应的命令并插入到当前 tmux 面板中。
 
 **核心特性**：
 - 自然语言到命令转换（如 "查找所有 markdown 文件" → `find . -name "*.md"`）
@@ -251,7 +251,7 @@ tests/                      # 测试套件（10 个测试用例）
 
 ### 数据流
 
-1. **用户触发**：`prefix + v` → tmux `command-prompt` 捕获输入
+1. **用户触发**：`prefix + a` → tmux `command-prompt` 捕获输入
 2. **API 调用**：`suggest.sh` 构造 JSON → curl 发送到 OpenAI API
 3. **响应处理**：jq 提取 `choices[0].message.content`
 4. **命令注入**：`tmux send-keys -l` 插入到当前面板
@@ -284,7 +284,7 @@ echo 'run-shell "~/.config/tmux/plugins/tmux-bot/bot.tmux"' >> ~/.tmux.conf
 # 3. 重载 tmux 配置
 tmux source-file ~/.tmux.conf
 
-# 4. 在 tmux 中测试：prefix + v，输入自然语言请求
+# 4. 在 tmux 中测试：prefix + a，输入自然语言请求
 ```
 
 ### 调试脚本
@@ -320,8 +320,8 @@ DEFAULT_MODEL="gpt-5"  # 更换模型
 
 **修改快捷键**（`bot.tmux:11`）：
 ```bash
-# 将 v 改为其他键（如 a）
-tmux bind-key a command-prompt -p "Ask AI assistant:" "run-shell \"$CURRENT_DIR/suggest.sh '%1'\" "
+# 将 a 改为其他键（如 c）
+tmux bind-key c command-prompt -p "Ask AI assistant:" "run-shell \"$CURRENT_DIR/suggest.sh '%1'\" "
 ```
 
 ### 关键代码位置
