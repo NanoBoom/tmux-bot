@@ -7,7 +7,7 @@ PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$PLUGIN_DIR/scripts/helpers.sh"
 
 set_keybind() {
-  local default_key="v"
+  local default_key="a"
   local custom_key
   custom_key=$(get_tmux_option "@tmux_bot_key" "$default_key")
 
@@ -28,6 +28,38 @@ cleanup_old_logs() {
   find "$log_dir" -name "*.log" -mtime +7 -delete 2>/dev/null || true
 }
 
+set_chat_keybind() {
+  # AI Chat Assistant (popup mode) - prefix + b (customizable)
+  local chat_key
+  chat_key=$(get_tmux_option "@tmux_bot_chat_key" "b")
+
+  if command -v aichat &>/dev/null; then
+    # Check if key is already bound
+    if key_binding_not_set "$chat_key"; then
+      # Check if tmux-toggle-popup is available
+      local popup_toggle
+      popup_toggle=$(tmux show -gqv @popup-toggle)
+
+      if [ -n "$popup_toggle" ] && [ -x "$popup_toggle" ]; then
+        # Use popup mode (preferred)
+        tmux bind-key "$chat_key" run-shell "#{@popup-toggle} -w85% -h85% -Ed'{popup_caller_pane_path}' \
+          --name=tmux-bot-chat '$PLUGIN_DIR/scripts/chat.sh'"
+      # else
+      #   # Fallback: Use new-window if popup plugin not available
+      #   tmux bind-key "$chat_key" new-window -n "AI Chat" "$PLUGIN_DIR/scripts/chat.sh"
+      fi
+    else
+      tmux display-message -d 3000 "Warning: Key '$chat_key' already bound, chat feature not activated. Set @tmux_bot_chat_key to use different key."
+    fi
+  else
+    # aichat not installed - only show hint if key not already bound
+    if key_binding_not_set "$chat_key"; then
+      tmux bind-key "$chat_key" display-message -d 5000 -F \
+        "#[fg=yellow]tmux-bot: Install aichat for chat mode - https://github.com/sigoden/aichat"
+    fi
+  fi
+}
+
 main() {
   # 检查 tmux 版本（command-prompt -p 需要 1.9+）
   if ! tmux_version_ok "1.9"; then
@@ -39,6 +71,7 @@ main() {
 
   cleanup_old_logs
   set_keybind
+  set_chat_keybind
 }
 
 main
