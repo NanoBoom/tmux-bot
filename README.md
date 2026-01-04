@@ -141,6 +141,25 @@ set -g @tmux_bot_key "c"  # Use 'c' instead of default 'a'
    - Ask questions, get responses, refine iteratively
    - Close popup: session persists, reopens with full history
 
+### Using Chat Mode
+
+**Start chat**: Press `prefix + b` (default)
+
+**Hide popup** (keep aichat running):
+- Press `Ctrl+Q` inside the popup
+- Popup disappears, aichat continues in background
+- Press `prefix + b` again to resume the same session
+
+**Exit aichat** (close completely):
+- Press `Ctrl+D` or type `.exit` in aichat
+- Aichat terminates, popup closes
+- Next `prefix + b` starts a fresh session (history preserved via `--session`)
+
+**Tips**:
+- Use `Ctrl+Q` for quick hide/resume (like a dropdown terminal)
+- Use `Ctrl+D` when you're done and want to free resources
+- Chat history persists across sessions (stored in `~/.config/aichat/sessions/`)
+
 ### Chat Mode vs Command Mode
 
 | Feature | Command Mode (`prefix + a`) | Chat Mode (`prefix + b`) |
@@ -199,6 +218,25 @@ set -g @tmux_bot_chat_key "B"  # Use capital 'B' instead of default 'b'
 - Custom roles are optional
 - aichat uses default behavior if role missing
 - Create role: `mkdir -p ~/.config/aichat/roles/`
+
+**Q: I pressed `Ctrl+Q` but the popup didn't hide**
+
+A: Check if the keybinding is configured:
+```bash
+tmux show -g @popup-on-init
+# Should show: set status off ; bind -n C-q detach-client
+```
+If not, reload tmux config: `tmux source-file ~/.tmux.conf`
+
+**Q: What's the difference between `Ctrl+Q` and `Ctrl+D`?**
+
+A:
+- `Ctrl+Q`: Hide popup (aichat keeps running, instant resume)
+- `Ctrl+D`: Exit aichat (terminate process, fresh start next time)
+
+**Q: The popup doesn't resume my previous conversation**
+
+A: This is expected if you used `Ctrl+D` (exit). Use `Ctrl+Q` (hide) instead. aichat's `--session` flag persists history across restarts, but there's a slight delay.
 
 ## Troubleshooting
 

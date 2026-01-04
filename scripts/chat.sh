@@ -12,6 +12,16 @@ fi
 AICHAT_ROLE="${AICHAT_ROLE:-tmux-bot-assistant}"
 role_file="$HOME/.config/aichat/roles/${AICHAT_ROLE}.md"
 
+# Display welcome message
+cat <<'EOF'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  tmux-bot AI Chat Assistant
+  Hide popup: Ctrl+Q (resume with prefix + b)
+  Exit aichat: Ctrl+D or type '.exit'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EOF
+
 if [ -f "$role_file" ]; then
     # Role exists - use it
     exec aichat --session tmux-bot -r "$AICHAT_ROLE"

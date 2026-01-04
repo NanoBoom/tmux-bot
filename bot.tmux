@@ -41,6 +41,10 @@ set_chat_keybind() {
       popup_toggle=$(tmux show -gqv @popup-toggle)
 
       if [ -n "$popup_toggle" ] && [ -x "$popup_toggle" ]; then
+        # Configure popup-specific keybinding for toggle (Ctrl+Q to hide popup)
+        tmux set -g @popup-on-init 'set status off'
+        tmux set -ga @popup-on-init ' ; bind -n C-q detach-client'
+
         # Use popup mode (preferred)
         tmux bind-key "$chat_key" run-shell "#{@popup-toggle} -w85% -h85% -Ed'{popup_caller_pane_path}' \
           --name=tmux-bot-chat '$PLUGIN_DIR/scripts/chat.sh'"
