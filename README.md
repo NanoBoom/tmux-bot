@@ -2,6 +2,8 @@
 
 An intelligent tmux plugin that translates natural language into bash commands using AI (OpenAI GPT or compatible APIs).
 
+> ⚠️ **v3.0 Breaking Change**: Chat mode requires manual setup. [See Migration Guide](#️-breaking-change-in-v30)
+
 ## Features
 
 - 🤖 Natural language to bash command translation
@@ -9,6 +11,34 @@ An intelligent tmux plugin that translates natural language into bash commands u
 - ⚡ Fast response with loading animation
 - 🎨 Command preview (inserted but not executed)
 - 🔧 Compatible with OpenAI-compatible API endpoints
+
+## ⚠️ Breaking Change in v3.0
+
+Chat mode (prefix + b) no longer auto-configured by plugin.
+
+**To enable chat mode**, copy-paste ONE of these to `~/.tmux.conf` (no modification needed):
+
+```tmux
+# Option 1: Popup mode (requires tmux-toggle-popup plugin)
+# Configure popup-specific keybinding first
+set -g @popup-on-init 'set status off ; bind -n C-q detach-client'
+# Then bind the chat command
+bind b run "#{@popup-toggle} -w85% -h85% -Ed'{popup_caller_pane_path}' \
+  --name=tmux-bot-chat '#{@tmux-bot-chat}'"
+
+# Option 2: New window (no extra plugins)
+bind b new-window -n "AI Chat" "#{@tmux-bot-chat}"
+
+# Option 3: Split window (no extra plugins)
+bind b split-window -v -l 30% "#{@tmux-bot-chat}"
+```
+
+**Note**: `#{@tmux-bot-chat}` is auto-configured by the plugin - no hardcoded paths needed.
+
+**To use old auto-config behavior**, downgrade to v2.x:
+```tmux
+set -g @plugin 'doodle-es/tmux-bot@v2.0'
+```
 
 ## ⚠️ Breaking Change in v2.0
 
@@ -103,9 +133,9 @@ set -g @tmux_bot_key "c"  # Use 'c' instead of default 'a'
 
 ## AI Chat Assistant (Multi-turn Conversations)
 
-**New in v2.0**: Persistent AI chat mode with `prefix + b`.
+**New in v2.0**: Persistent AI chat mode with aichat.
 
-### Quick Start
+### Prerequisites
 
 1. **Install aichat**:
    ```bash
@@ -127,38 +157,67 @@ set -g @tmux_bot_key "c"  # Use 'c' instead of default 'a'
    export OPENAI_API_KEY="sk-..."
    ```
 
-3. **Install tmux-toggle-popup** (optional, for popup UI):
-   ```tmux
-   # Add to ~/.tmux.conf
-   set -g @plugin 'loichyan/tmux-toggle-popup'
+### Setup Chat Mode
 
-   # Then install via TPM (prefix + I)
-   ```
+Chat mode requires **manual configuration** in your `~/.tmux.conf`. Choose one of the following options:
 
-4. **Use Chat Mode**:
-   - Press `prefix + b`
-   - Popup appears with aichat REPL
-   - Ask questions, get responses, refine iteratively
-   - Close popup: session persists, reopens with full history
+#### Option 1: Popup Mode (Recommended)
 
-### Using Chat Mode
+**Requirements**:
+- tmux >= 3.2 (for popup support)
+- [tmux-toggle-popup](https://github.com/loichyan/tmux-toggle-popup) plugin
 
-**Start chat**: Press `prefix + b` (default)
+**Configuration** (copy-paste ready):
+```tmux
+# 1. Add tmux-toggle-popup to your plugins
+set -g @plugin 'loichyan/tmux-toggle-popup'
 
-**Hide popup** (keep aichat running):
-- Press `Ctrl+Q` inside the popup
-- Popup disappears, aichat continues in background
+# 2. Configure popup-specific keybinding (Ctrl+Q to hide)
+# `-n` flag makes tmux intercept key before aichat receives it
+set -g @popup-on-init 'set status off ; bind -n C-q detach-client'
+
+# 3. Bind chat command to prefix + b
+bind b run "#{@popup-toggle} -w85% -h85% -Ed'{popup_caller_pane_path}' \
+  --name=tmux-bot-chat '#{@tmux-bot-chat}'"
+```
+
+**Usage**:
+- Press `prefix + b` to open popup
+- Press `Ctrl+Q` to hide popup (keeps aichat running in background)
+  - **Why no prefix needed**: `-n` flag intercepts key before aichat captures it
 - Press `prefix + b` again to resume the same session
 
-**Exit aichat** (close completely):
-- Press `Ctrl+D` or type `.exit` in aichat
-- Aichat terminates, popup closes
-- Next `prefix + b` starts a fresh session (history preserved via `--session`)
+#### Option 2: New Window Mode
 
-**Tips**:
-- Use `Ctrl+Q` for quick hide/resume (like a dropdown terminal)
-- Use `Ctrl+D` when you're done and want to free resources
-- Chat history persists across sessions (stored in `~/.config/aichat/sessions/`)
+**Requirements**: None (uses tmux built-in)
+
+**Configuration** (copy-paste ready):
+```tmux
+# Add to ~/.tmux.conf - no modification needed
+bind b new-window -n "AI Chat" "#{@tmux-bot-chat}"
+```
+
+**Usage**:
+- Press `prefix + b` to open chat in new window
+- Press `Ctrl+D` or type `.exit` to close
+- Use `prefix + [window number]` to switch back to work
+
+#### Option 3: Split Window Mode
+
+**Requirements**: None (uses tmux built-in)
+
+**Configuration** (copy-paste ready):
+```tmux
+# Add to ~/.tmux.conf - no modification needed
+bind b split-window -v -l 30% "#{@tmux-bot-chat}"
+```
+
+**Usage**:
+- Press `prefix + b` to open chat in bottom split (30% height)
+- Press `Ctrl+D` or type `.exit` to close split
+- Use `prefix + arrow keys` to switch panes
+
+### Chat Mode Features
 
 ### Chat Mode vs Command Mode
 
@@ -203,11 +262,6 @@ set -g @tmux_bot_chat_key "B"  # Use capital 'B' instead of default 'b'
 **"aichat not installed" message**:
 - Install aichat: https://github.com/sigoden/aichat#installation
 - Verify: `which aichat`
-
-**Popup doesn't appear**:
-- Option 1: Install tmux-toggle-popup (see Quick Start)
-- Option 2: Use fallback (opens new tmux window instead)
-- Check: `tmux show -g @popup-toggle` should show script path
 
 **Session doesn't persist**:
 - aichat sessions auto-save by default
