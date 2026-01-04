@@ -8,10 +8,6 @@ if ! command -v aichat &>/dev/null; then
   exit 1
 fi
 
-# Check if custom role exists
-AICHAT_ROLE="${AICHAT_ROLE:-tmux-bot-assistant}"
-role_file="$HOME/.config/aichat/roles/${AICHAT_ROLE}.md"
-
 # Display welcome message
 cat <<'EOF'
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -20,10 +16,6 @@ cat <<'EOF'
 
 EOF
 
-if [ -f "$role_file" ]; then
-  # Role exists - use it
-  exec aichat --session tmux-bot -r "$AICHAT_ROLE"
-else
-  # Role doesn't exist - start without role (use default behavior)
-  exec aichat --session tmux-bot
-fi
+# Start aichat with session persistence
+# Users can configure role, model, etc. in aichat's own config
+exec aichat --session tmux-bot
