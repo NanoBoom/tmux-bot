@@ -20,11 +20,12 @@ Chat mode (prefix + b) no longer auto-configured by plugin.
 
 ```tmux
 # Option 1: Popup mode (requires tmux-toggle-popup plugin)
-# Configure popup-specific keybinding first
+# Enable global singleton mode (one chat instance across all directories)
+set -gF @popup-id-format "{popup_name}"
+# Configure popup-specific keybinding (Ctrl+Q to hide popup)
 set -g @popup-on-init 'set status off ; bind -n C-q detach-client'
-# Then bind the chat command
-bind b run "#{@popup-toggle} -w85% -h85% -Ed'{popup_caller_pane_path}' \
-  --name=tmux-bot-chat '#{@tmux-bot-chat}'"
+# Bind the chat command to Alt+t (no prefix needed)
+bind -n M-t run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
 
 # Option 2: New window (no extra plugins)
 bind b new-window -n "AI Chat" "#{@tmux-bot-chat}"
@@ -82,6 +83,36 @@ tmux source-file ~/.tmux.conf
 
 ## Configuration
 
+### Quick Start (Copy-Paste Ready)
+
+**Minimal setup** (command mode only):
+```tmux
+# Add to ~/.tmux.conf
+set -g @plugin 'doodle-es/tmux-bot'
+set -g @openai_api_key "sk-your-api-key-here"
+```
+
+**Full setup** (command + popup chat mode):
+```tmux
+# Add to ~/.tmux.conf
+
+# === Plugins ===
+set -g @plugin 'doodle-es/tmux-bot'
+set -g @plugin 'loichyan/tmux-toggle-popup'
+
+# === API Configuration ===
+set -g @openai_api_key "sk-your-api-key-here"
+
+# === Chat Mode (Popup) ===
+set -gF @popup-id-format "{popup_name}"  # Global singleton mode
+set -g @popup-on-init 'set status off ; bind -n C-q detach-client'
+bind -n M-t run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
+```
+
+Then reload: `tmux source ~/.tmux.conf` and press `prefix + I` to install plugins.
+
+---
+
 ### Required Settings
 
 ```tmux
@@ -104,7 +135,7 @@ set -g @openai_base_url "https://api.openai.com/v1"
 # Model selection (default: gpt-4)
 set -g @openai_model "gpt-4"
 
-# Custom keybinding (default: a)
+# Custom keybinding for command mode (default: a)
 set -g @tmux_bot_key "c"  # Use 'c' instead of default 'a'
 ```
 
@@ -172,20 +203,29 @@ Chat mode requires **manual configuration** in your `~/.tmux.conf`. Choose one o
 # 1. Add tmux-toggle-popup to your plugins
 set -g @plugin 'loichyan/tmux-toggle-popup'
 
-# 2. Configure popup-specific keybinding (Ctrl+Q to hide)
+# 2. Enable global singleton mode (IMPORTANT: prevents multiple chat instances)
+set -gF @popup-id-format "{popup_name}"
+
+# 3. Configure popup-specific keybinding (Ctrl+Q to hide)
 # `-n` flag makes tmux intercept key before aichat receives it
 set -g @popup-on-init 'set status off ; bind -n C-q detach-client'
 
-# 3. Bind chat command to prefix + b
-bind b run "#{@popup-toggle} -w85% -h85% -Ed'{popup_caller_pane_path}' \
-  --name=tmux-bot-chat '#{@tmux-bot-chat}'"
+# 4. Bind chat command to Alt+t (no prefix needed)
+bind -n M-t run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
+```
+
+**Optional: Prevent conflicts with other popups**
+If you use multiple popups (e.g., lazygit, htop), add `--name=aichat` to avoid session collision:
+```tmux
+bind -n M-t run "#{@popup-toggle} -w85% -h85% -E --name=aichat '#{@tmux-bot-chat}'"
 ```
 
 **Usage**:
-- Press `prefix + b` to open popup
+- Press `Alt+t` to open popup (from any directory, no prefix needed)
 - Press `Ctrl+Q` to hide popup (keeps aichat running in background)
   - **Why no prefix needed**: `-n` flag intercepts key before aichat captures it
-- Press `prefix + b` again to resume the same session
+- Press `Alt+t` again to resume the same session
+- **Global singleton**: All directories share one chat instance (conversation history preserved)
 
 #### Option 2: New Window Mode
 
@@ -221,8 +261,8 @@ bind b split-window -v -l 30% "#{@tmux-bot-chat}"
 
 ### Chat Mode vs Command Mode
 
-| Feature | Command Mode (`prefix + a`) | Chat Mode (`prefix + b`) |
-|---------|----------------------------|--------------------------|
+| Feature | Command Mode (`prefix + a`) | Chat Mode (`Alt+t`) |
+|---------|----------------------------|---------------------|
 | **Use Case** | Quick one-shot commands | Multi-turn conversations |
 | **UI** | Inline prompt | Popup window |
 | **History** | None | Full session persistence |
@@ -252,10 +292,17 @@ See `examples/aichat-role-tmux-bot-assistant.md` for a complete example.
 
 ### Chat Mode Configuration
 
+**Customize keybinding**:
+The default popup binding is `Alt+t`. To use a different key, modify the binding in your `~/.tmux.conf`:
 ```tmux
-# Customize chat keybinding (default: b)
-set -g @tmux_bot_chat_key "B"  # Use capital 'B' instead of default 'b'
+# Example: Use Alt+g instead of Alt+t
+bind -n M-g run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
+
+# Example: Use prefix + c (requires prefix)
+bind c run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
 ```
+
+**Note**: `@tmux_bot_chat_key` option was removed in v3.0. Manually configure the binding instead.
 
 ### Chat Mode Troubleshooting
 
@@ -291,6 +338,32 @@ A:
 **Q: The popup doesn't resume my previous conversation**
 
 A: This is expected if you used `Ctrl+D` (exit). Use `Ctrl+Q` (hide) instead. aichat's `--session` flag persists history across restarts, but there's a slight delay.
+
+**Q: Multiple aichat instances are created in different directories**
+
+A: This happens when `@popup-id-format` is not configured. By default, tmux-toggle-popup uses directory path in the session ID, creating separate instances per directory.
+
+**Fix** (add to `~/.tmux.conf`):
+```tmux
+set -gF @popup-id-format "{popup_name}"
+```
+
+Then cleanup old sessions:
+```bash
+# Kill all old popup sessions
+tmux -L popup kill-server
+
+# Or use the automated fix script
+./scripts/fix-multi-instance.sh
+```
+
+Verify only one session exists:
+```bash
+tmux -L popup list-sessions
+# Should show: aichat: 1 windows (created ...)
+```
+
+See `FIX_MULTI_INSTANCE.md` for detailed diagnosis.
 
 ## Troubleshooting
 
