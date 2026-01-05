@@ -290,6 +290,15 @@ Consider OS and shell context. Be concise.
 
 See `examples/aichat-role-tmux-bot-assistant.md` for a complete example.
 
+**Using custom roles** (after creating the role file above):
+```tmux
+# Option 1: Via keybinding argument
+bind -n M-r run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} -r tmux-bot-assistant'"
+
+# Option 2: Via aichat config (set as default)
+# Edit ~/.config/aichat/config.yaml and add: role: tmux-bot-assistant
+```
+
 ### Chat Mode Configuration
 
 **Customize keybinding**:
@@ -304,6 +313,32 @@ bind c run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
 
 **Note**: `@tmux_bot_chat_key` option was removed in v3.0. Manually configure the binding instead.
 
+### Advanced: Custom Arguments
+
+Pass arguments to aichat for advanced customization:
+
+**Use custom AI model**:
+```tmux
+bind -n M-4 run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} -m gpt-4o'"
+bind -n M-3 run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} -m claude-sonnet-4.5'"
+```
+
+**Use specific role**:
+```tmux
+# Assuming you created ~/.config/aichat/roles/code-reviewer.md
+bind -n M-r run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} -r code-reviewer'"
+```
+
+**Start empty session (no history)**:
+```tmux
+bind -n M-n run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} --empty-session'"
+```
+
+**Combine multiple arguments**:
+```tmux
+bind -n M-c run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} -m gpt-4o -r shell-expert'"
+```
+
 ### Chat Mode Troubleshooting
 
 **"aichat not installed" message**:
@@ -311,9 +346,13 @@ bind c run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat}'"
 - Verify: `which aichat`
 
 **Session doesn't persist**:
-- aichat sessions auto-save by default
-- Check: `aichat --list-sessions` should show "tmux-bot"
-- Delete session: `aichat` → `.delete session tmux-bot`
+- By default, chat uses temporary session (no history saved)
+- To enable persistence, use `--session` flag in your binding:
+  ```tmux
+  bind -n M-t run "#{@popup-toggle} -w85% -h85% -E '#{@tmux-bot-chat} --session my-chat'"
+  ```
+- Check active sessions: `aichat --list-sessions`
+- Delete session: `aichat` → `.delete session <name>`
 
 **Role not found**:
 - Custom roles are optional

@@ -16,6 +16,5 @@ cat <<'EOF'
 
 EOF
 
-# Start aichat with session persistence
-# Users can configure role, model, etc. in aichat's own config
-exec aichat --session tmux-bot
+# Start aichat with user arguments
+exec aichat "$@"
